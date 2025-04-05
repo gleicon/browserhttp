@@ -1,4 +1,4 @@
-.PHONY: all build-lib test-lib build-examples build-burl run-burl clean
+.PHONY: all build test build-examples build-burl run-burl clean
 
 all: deps build-lib build-examples
 
@@ -7,13 +7,13 @@ deps:
 	go mod download
 	go mod verify
 
-build-lib:
+build:
 	@echo "Building browserhttp library..."
-	go build ./browserhttp
+	go build .
 
-test-lib:
+test:
 	@echo "Running tests..."
-	go test ./browserhttp
+	go test .
 
 build-examples:
 	@echo "Building all examples..."
