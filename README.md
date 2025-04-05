@@ -1,4 +1,8 @@
+![browserhttp](https://raw.githubusercontent.com/gleicon/browserhttp/main/logo.png)
+
 # browserhttp
+
+[![Go CI](https://github.com/gleicon/browserhttp/actions/workflows/go.yml/badge.svg)](https://github.com/gleicon/browserhttp/actions/workflows/go.yml)
 
 `browserhttp` is a drop-in `http.Client`-compatible Go package that uses a real headless browser (Chrome via [chromedp](https://github.com/chromedp/chromedp)) under the hood to fetch and interact with web pages.
 
@@ -53,49 +57,55 @@ client.EnableVerbose()
 ---
 
 ## 📁 Examples
-Run each file from the `examples/` directory:
+
 ```bash
-go run examples/get.go
+make build
+./bin/burl -v -X POST -d "test=1" https://httpbin.org/post
 ```
 
-### `examples/get.go`
-Basic page request
+---
 
-### `examples/post.go`
-POST request using form simulation
+## CLI: `burl`
 
-### `examples/verbose.go`
-Same as `get.go` but with logging enabled
+```bash
+# Basic GET
+burl https://example.com
+
+# POST with form data
+burl -X POST -d "user=admin&pass=123" https://httpbin.org/post
+
+# Save output and headers
+burl -i -o page.html -H headers.txt https://target.com
+
+# Follow redirects
+burl -L https://site-with-redirects.com
+```
 
 ---
 
 ## 🔧 Internals
 - `doGET()` uses `chromedp.Navigate()` and `chromedp.OuterHTML()`
-- `doPOST()` simulates JS form creation and submission via `EvaluateAsDevTools`
-- `io.NopCloser(strings.NewReader(...))` wraps the output back as `http.Response.Body`
+- `doPOST()` simulates JS form creation and submission
 
 ---
 
 ## 🚧 TODO
 - Support JSON and custom body types
-- Intercept and modify requests via `Fetch` domain
-- Capture HTTP response codes and headers from network events
-- Reuse browser context across requests (session-aware client)
+- Capture real response headers from browser context
+- Add session/cookie persistence
 
 ---
 
 ## 🛡️ Use Cases
 - Automated OWASP scans
 - Web scraping (JS-only pages)
-- Red team infrastructure emulating browser traffic
-- API testers that require full page context
+- Red team tools
 
 ---
 
 ## 🧠 Author
 [gleicon](https://github.com/gleicon)
 
-PRs welcome!
-
+Pull requests welcome!
 
 
