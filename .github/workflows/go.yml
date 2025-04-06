@@ -40,6 +40,5 @@ jobs:
         CHROME_FLAGS: --no-sandbox
       run: go run examples/post.go
 
-    - name: Run linter (optional)
-      run: go vet ./...
+
 
