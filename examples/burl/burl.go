@@ -47,6 +47,7 @@ func main() {
 	client.UsePersistentTabs(*persist)
 	if *verbose {
 		client.EnableVerbose()
+		*showHeaders = true // verbose means show headers
 	}
 	if *screenshotDir != "" {
 		client.EnableScreenshots(*screenshotDir)

@@ -4,4 +4,4 @@ screenshots/*
 .DS_Store
 .vscode
 .cursor
-
+snap*.png
