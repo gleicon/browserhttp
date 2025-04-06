@@ -23,6 +23,8 @@ jobs:
 
     - name: Set environment for Chrome no-sandbox
       run: echo "CHROME_FLAGS=--no-sandbox" >> $GITHUB_ENV
+  
+    - name: Set environment for CI timeouts
       run: echo "CI=true" >> $GITHUB_ENV
 
     - name: Build CLI
