@@ -24,7 +24,7 @@ jobs:
     - name: Install Chromium dependencies (no-sandbox workaround)
       run: |
         sudo apt-get update
-        sudo apt-get install -y libatk-bridge2.0-0 libgtk-3-0 libxss1 libasound2
+        sudo apt-get install -y libatk-bridge2.0-0 libgtk-3-0 libxss1 libasound2t64
 
     - name: Build CLI
       run: make build
