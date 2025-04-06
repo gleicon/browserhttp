@@ -1,4 +1,4 @@
-![browserhttp](https://raw.githubusercontent.com/gleicon/browserhttp/main/logo.png)
+![browserhttp](https://raw.githubusercontent.com/gleicon/browserhttp/main/logo.jpeg)
 
 # browserhttp
 
