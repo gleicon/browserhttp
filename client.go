@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"os"
 
 	"github.com/chromedp/chromedp"
 )
@@ -57,6 +58,11 @@ func (bc *BrowserClient) Init() error {
 		chromedp.Flag("headless", true),
 		chromedp.Flag("disable-gpu", true),
 	)
+	
+	if os.Getenv("CHROME_FLAGS") == "--no-sandbox" {
+    opts = append(opts, chromedp.Flag("no-sandbox", true))
+	}
+	
 	allocCtx, _ := chromedp.NewExecAllocator(ctx, opts...)
 	bc.allocatorCtx = allocCtx
 

@@ -97,7 +97,7 @@ burl -L -p https://site.com
 - `doGET()` uses `chromedp.Navigate()` and `chromedp.OuterHTML()`
 - `doPOST()` simulates JS form creation and submission
 - `UsePersistentTabs(true)` enables tab reuse and session sharing
-
+- $ export CHROME_FLAGS=--no-sandbox disable chrome sandbox, initially adapted to ease CI but can help embedded systems.
 ---
 
 ## 🚧 TODO

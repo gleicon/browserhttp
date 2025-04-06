@@ -1,5 +1,3 @@
-name: Go CI
-
 on:
   push:
     branches: [ "main" ]
@@ -18,21 +16,25 @@ jobs:
       with:
         go-version: '1.21'
 
-    - name: Install dependencies
-      run: go mod tidy
-
     - name: Install Chromium dependencies (no-sandbox workaround)
       run: |
         sudo apt-get update
         sudo apt-get install -y libatk-bridge2.0-0 libgtk-3-0 libxss1 libasound2t64
 
+    - name: Set environment for Chrome no-sandbox
+      run: echo "CHROME_FLAGS=--no-sandbox" >> $GITHUB_ENV
+
     - name: Build CLI
       run: make build
 
     - name: Run example (GET)
+      env:
+        CHROME_FLAGS: --no-sandbox
       run: go run examples/get.go
 
     - name: Run example (POST)
+      env:
+        CHROME_FLAGS: --no-sandbox
       run: go run examples/post.go
 
     - name: Run linter (optional)
