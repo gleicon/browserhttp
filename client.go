@@ -51,7 +51,13 @@ func (bc *BrowserClient) UsePersistentTabs(persist bool) {
 
 // Init sets up the Chrome instance and persistent tab (if enabled).
 func (bc *BrowserClient) Init() error {
-	ctx, cancel := context.WithTimeout(context.Background(), bc.Timeout)
+
+	timeout := bc.Timeout
+	if os.Getenv("CI") == "true" {
+    timeout = 60 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+
 	bc.browserCancelFn = cancel
 
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
@@ -109,6 +115,7 @@ func (bc *BrowserClient) doGET(req *http.Request) (*http.Response, error) {
 	var html string
 
 	err := chromedp.Run(ctx,
+		chromedp.Sleep(1 * time.Second),
 		chromedp.Navigate(req.URL.String()),
 		chromedp.WaitReady("body", chromedp.ByQuery),
 		chromedp.OuterHTML("html", &html),
