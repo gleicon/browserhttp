@@ -97,7 +97,11 @@ burl -i -o page.html -H headers.txt https://target.com
 
 # Follow redirects + persistent tab
 burl -L -p https://site.com
+
+# POST with form data and take a screenshot to be saved to the current dir
+burl -X POST -d "u=admin&p=pass" -s . https://example.com/login
 ```
+
 
 ---
 
@@ -108,6 +112,49 @@ burl -L -p https://site.com
 - `UsePersistentTabs(true)` enables tab reuse and session sharing
 - $ _export CHROME\_FLAGS =--no-sandbox_ disable chrome sandbox, initially adapted to ease CI but can help embedded systems.
 - $ _export CI=true_ increase the timeout to 60 seconds, initially to appease slower CI and container environments but if your client fail due to a ws:// (websocket) error it is worth a shot.
+
+---
+
+## 📸 Screenshot Capture (Optional)
+
+You can capture a full-page screenshot of every request made through `browserhttp`.
+
+### 🧪s Enabling Screenshots (Programmatic)
+
+Call this on your `BrowserClient`:
+
+```go
+os.MkdirAll("./screenshots", 0755) // ensure folder exists
+client.EnableScreenshots("./screenshots")
+```
+
+This saves a `.png` image for each request (GET or POST) into the specified folder. Screenshots are timestamped and logged if `Verbose` is enabled.
+
+> ⚠️ If the directory does not exist, the call to `EnableScreenshots()` will not create it. You must ensure it's created in advance using `os.MkdirAll()`.
+
+---
+
+### 👥 Using Screenshots from CLI (`burl`)
+
+The `burl` CLI supports screenshots with the `-s` flag:
+
+```bash
+burl -v -X POST -d "a=1&b=2" -s ./screenshots https://target.com
+```
+
+> 🛡️ The directory **must already exist**. If it doesn’t, `burl` will exit with an error.
+
+Each screenshot is saved with a timestamped filename like:
+
+```bash
+./screenshots/snap_1712407935123456789.png
+```
+
+Useful for:
+
+- 📷 Logging visual evidence during pentests
+- 📚 Documenting navigation flows or login attempts
+- 🕵️ Comparing layout/rendering changes over time
 
 ---
 

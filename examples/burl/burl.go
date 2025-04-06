@@ -1,3 +1,7 @@
+// =======================
+// File: examples/burl.go
+// =======================
+
 package main
 
 import (
@@ -22,6 +26,7 @@ func main() {
 	bodyOut := flag.String("o", "", "Save response body to file")
 	followRedirect := flag.Bool("L", false, "Follow redirects")
 	persist := flag.Bool("p", false, "Use persistent browser tab")
+	screenshotDir := flag.String("s", "", "Directory to save screenshots (must exist)")
 	flag.Parse()
 
 	if flag.NArg() == 0 {
@@ -30,11 +35,21 @@ func main() {
 		os.Exit(1)
 	}
 
+	if *screenshotDir != "" {
+		info, err := os.Stat(*screenshotDir)
+		if err != nil || !info.IsDir() {
+			log.Fatalf("Screenshot directory does not exist or is not a directory: %s", *screenshotDir)
+		}
+	}
+
 	targetURL := flag.Arg(0)
 	client := browserhttp.NewClient(20 * time.Second)
 	client.UsePersistentTabs(*persist)
 	if *verbose {
 		client.EnableVerbose()
+	}
+	if *screenshotDir != "" {
+		client.EnableScreenshots(*screenshotDir)
 	}
 	client.Init()
 	defer client.Close()
