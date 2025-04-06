@@ -2,4 +2,6 @@ bin/*
 *.db
 screenshots/*
 .DS_Store
+.vscode
+.cursor
 

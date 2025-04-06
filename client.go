@@ -124,7 +124,9 @@ func (bc *BrowserClient) doGET(req *http.Request) (*http.Response, error) {
 	var statusCode int64 = 200 // fallback default
 	var statusText string = "OK"
 	var respHeaders http.Header = make(http.Header)
+	done := make(chan struct{}) // 👈 signal for response
 
+	// Attach listener early
 	chromedp.ListenTarget(ctx, func(ev interface{}) {
 		if res, ok := ev.(*network.EventResponseReceived); ok {
 			if res.Type == network.ResourceTypeDocument {
@@ -133,13 +135,23 @@ func (bc *BrowserClient) doGET(req *http.Request) (*http.Response, error) {
 				for k, v := range res.Response.Headers {
 					respHeaders.Set(k, fmt.Sprintf("%v", v))
 				}
+				select {
+				case <-done: // already closed
+				default:
+					close(done)
+				}
 			}
 		}
 	})
 
-	err := chromedp.Run(ctx,
-		network.Enable(),
-		//chromedp.Sleep(1*time.Second), // get ready first request
+	// Enable network capture before navigation
+	err := chromedp.Run(ctx, network.Enable())
+	if err != nil {
+		return nil, err
+	}
+
+	// Navigate and extract HTML
+	err = chromedp.Run(ctx,
 		chromedp.Navigate(req.URL.String()),
 		chromedp.WaitReady("body", chromedp.ByQuery),
 		chromedp.OuterHTML("html", &html),
@@ -148,6 +160,16 @@ func (bc *BrowserClient) doGET(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
+	// Wait up to 2s for status event
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		if bc.Verbose {
+			log.Println("[browserhttp] Warning: response status capture timed out")
+		}
+	}
+
+	// Optional screenshot
 	if bc.CaptureScreenshots {
 		var buf []byte
 		if err := chromedp.Run(ctx, chromedp.CaptureScreenshot(&buf)); err == nil {
@@ -177,8 +199,10 @@ func (bc *BrowserClient) doPOST(req *http.Request) (*http.Response, error) {
 	var postScript string
 	var statusCode int64 = 200 // fallback default
 	var statusText string = "OK"
-	var respHeaders http.Header = make(http.Header)
+	respHeaders := make(http.Header)
+	done := make(chan struct{}) // used to wait for network event
 
+	// Attach listener before any navigation
 	chromedp.ListenTarget(ctx, func(ev interface{}) {
 		if res, ok := ev.(*network.EventResponseReceived); ok {
 			if res.Type == network.ResourceTypeDocument {
@@ -187,10 +211,16 @@ func (bc *BrowserClient) doPOST(req *http.Request) (*http.Response, error) {
 				for k, v := range res.Response.Headers {
 					respHeaders.Set(k, fmt.Sprintf("%v", v))
 				}
+				select {
+				case <-done:
+				default:
+					close(done)
+				}
 			}
 		}
 	})
 
+	// Generate the form submission script from request body
 	if req.Body != nil {
 		bodyBytes, _ := io.ReadAll(req.Body)
 		values, _ := url.ParseQuery(string(bodyBytes))
@@ -203,6 +233,7 @@ func (bc *BrowserClient) doPOST(req *http.Request) (*http.Response, error) {
 		postScript += "document.body.appendChild(form); form.submit();"
 	}
 
+	// Run the navigation and form submission
 	err := chromedp.Run(ctx,
 		network.Enable(),
 		chromedp.Navigate("about:blank"),
@@ -213,6 +244,17 @@ func (bc *BrowserClient) doPOST(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Wait for response metadata or timeout
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		if bc.Verbose {
+			log.Println("[browserhttp] Warning: response status capture timed out")
+		}
+	}
+
+	// Optional screenshot capture
 	if bc.CaptureScreenshots {
 		var buf []byte
 		if err := chromedp.Run(ctx, chromedp.CaptureScreenshot(&buf)); err == nil {
@@ -225,6 +267,7 @@ func (bc *BrowserClient) doPOST(req *http.Request) (*http.Response, error) {
 			log.Printf("[browserhttp] Failed to capture screenshot: %v", err)
 		}
 	}
+
 	return &http.Response{
 		StatusCode: int(statusCode),
 		Status:     fmt.Sprintf("%d %s", statusCode, statusText),
