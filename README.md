@@ -19,6 +19,7 @@ It is ideal for security testing, scraping, automation, and environments where:
 - Supports GET and POST requests
 - JavaScript form submission simulation
 - Logs requests with `EnableVerbose()`
+- ✅ Supports persistent tab/session reuse (multi-request flows)
 - Designed for use in scanners, red team tools, or web automation
 
 ---
@@ -36,16 +37,25 @@ go get github.com/gleicon/browserhttp
 ### Basic GET
 ```go
 client := browserhttp.NewClient(10 * time.Second)
+client.Init()
 req, _ := http.NewRequest("GET", "https://example.com", nil)
 resp, _ := client.Do(req)
 ```
 
-### POST Form
+### Persistent Tab Session (Login Flow)
 ```go
-data := "username=admin&password=secret"
-req, _ := http.NewRequest("POST", "https://target.com/login", strings.NewReader(data))
-req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-resp, _ := client.Do(req)
+client := browserhttp.NewClient(15 * time.Second)
+client.UsePersistentTabs(true)
+client.Init()
+defer client.Close()
+
+// Login
+req1, _ := http.NewRequest("POST", "https://example.com/login", strings.NewReader("user=admin&pass=secret"))
+client.Do(req1)
+
+// Reuse session to access authenticated page
+req2, _ := http.NewRequest("GET", "https://example.com/dashboard", nil)
+client.Do(req2)
 ```
 
 ### Verbose Mode
@@ -77,8 +87,8 @@ burl -X POST -d "user=admin&pass=123" https://httpbin.org/post
 # Save output and headers
 burl -i -o page.html -H headers.txt https://target.com
 
-# Follow redirects
-burl -L https://site-with-redirects.com
+# Follow redirects + persistent tab
+burl -L -p https://site.com
 ```
 
 ---
@@ -86,6 +96,7 @@ burl -L https://site-with-redirects.com
 ## 🔧 Internals
 - `doGET()` uses `chromedp.Navigate()` and `chromedp.OuterHTML()`
 - `doPOST()` simulates JS form creation and submission
+- `UsePersistentTabs(true)` enables tab reuse and session sharing
 
 ---
 
@@ -99,7 +110,8 @@ burl -L https://site-with-redirects.com
 ## 🛡️ Use Cases
 - Automated OWASP scans
 - Web scraping (JS-only pages)
-- Red team tools
+- Red team tools with simulated logins
+- Browser-based pen testing CLI
 
 ---
 
@@ -107,5 +119,4 @@ burl -L https://site-with-redirects.com
 [gleicon](https://github.com/gleicon)
 
 Pull requests welcome!
-
 
