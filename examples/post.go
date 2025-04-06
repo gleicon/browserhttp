@@ -12,6 +12,9 @@ import (
 
 func main() {
 	client := browserhttp.NewClient(15 * time.Second)
+	client.UsePersistentTabs(true)
+	client.Init()
+	defer client.Close()
 
 	data := "username=admin&password=secret"
 	req, _ := http.NewRequest("POST", "https://httpbin.org/post", strings.NewReader(data))

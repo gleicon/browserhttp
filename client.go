@@ -6,7 +6,6 @@
 package browserhttp
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -24,13 +23,19 @@ import (
 // BrowserClient implements a drop-in replacement for http.Client
 // using a headless browser to execute the requests.
 type BrowserClient struct {
-	Timeout time.Duration
-	Verbose bool
+	Timeout         time.Duration
+	Verbose         bool
+	PersistentTabs  bool
+	allocatorCtx    context.Context
+	browserCancelFn context.CancelFunc
+	tabCtx context.Context
 }
 
-// NewClient returns a BrowserClient with the given timeout and optional verbosity.
+// NewClient returns a BrowserClient with the given timeout.
 func NewClient(timeout time.Duration) *BrowserClient {
-	return &BrowserClient{Timeout: timeout, Verbose: false}
+	return &BrowserClient{
+		Timeout: timeout,
+	}
 }
 
 // EnableVerbose turns on logging for the browser client.
@@ -38,44 +43,71 @@ func (bc *BrowserClient) EnableVerbose() {
 	bc.Verbose = true
 }
 
-// Do simulates http.Client's Do method but uses headless Chrome to fetch the page.
+// UsePersistentTabs configures whether to reuse a browser tab across requests.
+func (bc *BrowserClient) UsePersistentTabs(persist bool) {
+	bc.PersistentTabs = persist
+}
+
+// Init sets up the Chrome instance and persistent tab (if enabled).
+func (bc *BrowserClient) Init() error {
+	ctx, cancel := context.WithTimeout(context.Background(), bc.Timeout)
+	bc.browserCancelFn = cancel
+
+	opts := append(chromedp.DefaultExecAllocatorOptions[:],
+		chromedp.Flag("headless", true),
+		chromedp.Flag("disable-gpu", true),
+	)
+	allocCtx, _ := chromedp.NewExecAllocator(ctx, opts...)
+	bc.allocatorCtx = allocCtx
+
+	if bc.PersistentTabs {
+		bc.tabCtx, _ = chromedp.NewContext(allocCtx)
+	}
+
+	return nil
+}
+
+// Close ends the browser session.
+func (bc *BrowserClient) Close() {
+	if bc.browserCancelFn != nil {
+		bc.browserCancelFn()
+	}
+}
+
+// Do simulates http.Client's Do method but uses headless Chrome.
 func (bc *BrowserClient) Do(req *http.Request) (*http.Response, error) {
 	if bc.Verbose {
 		log.Printf("[browserhttp] Visiting %s [%s]", req.URL.String(), req.Method)
 	}
 
-	if req.Method == http.MethodGet {
+	switch req.Method {
+	case http.MethodGet:
 		return bc.doGET(req)
-	} else if req.Method == http.MethodPost {
+	case http.MethodPost:
 		return bc.doPOST(req)
+	default:
+		return nil, errors.New("browserhttp only supports GET and POST methods currently")
 	}
-	return nil, errors.New("browserhttp only supports GET and POST methods currently")
+}
+
+func (bc *BrowserClient) getContext() context.Context {
+	if bc.PersistentTabs && bc.tabCtx != nil {
+		return bc.tabCtx
+	}
+	ctx, _ := chromedp.NewContext(bc.allocatorCtx)
+	return ctx
 }
 
 func (bc *BrowserClient) doGET(req *http.Request) (*http.Response, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), bc.Timeout)
-	defer cancel()
+	ctx := bc.getContext()
+	var html string
 
-	opts := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.Flag("headless", true),
-		chromedp.Flag("disable-gpu", true),
-		chromedp.UserAgent(req.UserAgent()),
-	)
-
-	allocCtx, allocCancel := chromedp.NewExecAllocator(ctx, opts...)
-	defer allocCancel()
-
-	taskCtx, taskCancel := chromedp.NewContext(allocCtx)
-	defer taskCancel()
-
-	var htmlContent string
-	tasks := []chromedp.Action{
+	err := chromedp.Run(ctx,
 		chromedp.Navigate(req.URL.String()),
 		chromedp.WaitReady("body", chromedp.ByQuery),
-		chromedp.OuterHTML("html", &htmlContent, chromedp.ByQuery),
-	}
-
-	if err := chromedp.Run(taskCtx, tasks...); err != nil {
+		chromedp.OuterHTML("html", &html),
+	)
+	if err != nil {
 		return nil, err
 	}
 
@@ -83,55 +115,36 @@ func (bc *BrowserClient) doGET(req *http.Request) (*http.Response, error) {
 		StatusCode: 200,
 		Status:     "200 OK",
 		Header:     make(http.Header),
-		Body:       io.NopCloser(strings.NewReader(htmlContent)),
+		Body:       io.NopCloser(strings.NewReader(html)),
 		Request:    req,
 	}, nil
 }
 
 func (bc *BrowserClient) doPOST(req *http.Request) (*http.Response, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), bc.Timeout)
-	defer cancel()
-
-	opts := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.Flag("headless", true),
-		chromedp.Flag("disable-gpu", true),
-		chromedp.UserAgent(req.UserAgent()),
-	)
-
-	allocCtx, allocCancel := chromedp.NewExecAllocator(ctx, opts...)
-	defer allocCancel()
-
-	taskCtx, taskCancel := chromedp.NewContext(allocCtx)
-	defer taskCancel()
-
-	// Convert the POST body into form fields (x-www-form-urlencoded assumed)
-	var formAction = req.URL.String()
+	ctx := bc.getContext()
+	var html string
+	formAction := req.URL.String()
 	var postScript string
 
 	if req.Body != nil {
 		bodyBytes, _ := ioutil.ReadAll(req.Body)
-		req.Body.Close()
-		req.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
 		values, _ := url.ParseQuery(string(bodyBytes))
-
 		postScript = "var form = document.createElement('form'); form.method = 'POST'; form.action = '" + formAction + "';"
 		for key, vals := range values {
-			for _, v := range vals {
-				postScript += fmt.Sprintf("var input = document.createElement('input'); input.name = '%s'; input.value = '%s'; form.appendChild(input);", key, v)
+			for _, val := range vals {
+				postScript += fmt.Sprintf("var input = document.createElement('input'); input.name = '%s'; input.value = '%s'; form.appendChild(input);", key, val)
 			}
 		}
 		postScript += "document.body.appendChild(form); form.submit();"
 	}
 
-	var htmlContent string
-	tasks := []chromedp.Action{
+	err := chromedp.Run(ctx,
 		chromedp.Navigate("about:blank"),
-		chromedp.EvaluateAsDevTools(postScript, nil),
+		chromedp.Evaluate(postScript, nil),
 		chromedp.WaitReady("body", chromedp.ByQuery),
-		chromedp.OuterHTML("html", &htmlContent, chromedp.ByQuery),
-	}
-
-	if err := chromedp.Run(taskCtx, tasks...); err != nil {
+		chromedp.OuterHTML("html", &html),
+	)
+	if err != nil {
 		return nil, err
 	}
 
@@ -139,7 +152,7 @@ func (bc *BrowserClient) doPOST(req *http.Request) (*http.Response, error) {
 		StatusCode: 200,
 		Status:     "200 OK",
 		Header:     make(http.Header),
-		Body:       io.NopCloser(strings.NewReader(htmlContent)),
+		Body:       io.NopCloser(strings.NewReader(html)),
 		Request:    req,
 	}, nil
 }

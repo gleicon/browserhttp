@@ -10,7 +10,10 @@ import (
 
 func main() {
 	client := browserhttp.NewClient(10 * time.Second)
+	client.UsePersistentTabs(false)
 	client.EnableVerbose()
+	client.Init()
+	defer client.Close()
 
 	req, _ := http.NewRequest("GET", "https://example.com", nil)
 	resp, err := client.Do(req)

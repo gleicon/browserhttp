@@ -1,6 +1,6 @@
 .PHONY: all build test build-examples build-burl run-burl clean
 
-all: deps build-lib build-examples
+all: deps build build-examples
 
 deps:
 	@echo "Deps"
@@ -20,6 +20,7 @@ build-examples:
 	go build -o bin/get examples/get.go
 	go build -o bin/post examples/post.go
 	go build -o bin/verbose examples/verbose.go
+	go build -o bin/multitabs examples/multitabs.go
 
 build-burl:
 	@echo "Building burl CLI..."

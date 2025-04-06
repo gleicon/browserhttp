@@ -21,20 +21,23 @@ func main() {
 	headerOut := flag.String("H", "", "Save response headers to file")
 	bodyOut := flag.String("o", "", "Save response body to file")
 	followRedirect := flag.Bool("L", false, "Follow redirects")
+	persist := flag.Bool("p", false, "Use persistent browser tab")
 	flag.Parse()
 
 	if flag.NArg() == 0 {
 		fmt.Println("Usage: burl [options] <URL>")
-		fmt.Println("Options:")
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
 
 	targetURL := flag.Arg(0)
 	client := browserhttp.NewClient(20 * time.Second)
+	client.UsePersistentTabs(*persist)
 	if *verbose {
 		client.EnableVerbose()
 	}
+	client.Init()
+	defer client.Close()
 
 	var body io.Reader
 	if *data != "" {
@@ -45,7 +48,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create request: %v", err)
 	}
-
 	if *data != "" {
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
@@ -68,7 +70,6 @@ func main() {
 			fmt.Println()
 		}
 
-		// Save headers if requested
 		if *headerOut != "" {
 			hf, err := os.Create(*headerOut)
 			if err != nil {
@@ -99,7 +100,6 @@ func main() {
 			fmt.Println(string(output))
 		}
 
-		// Handle redirect
 		if *followRedirect {
 			if resp.StatusCode >= 300 && resp.StatusCode < 400 {
 				loc := resp.Header.Get("Location")
@@ -116,4 +116,3 @@ func main() {
 		handled = true
 	}
 }
-
