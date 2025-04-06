@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -18,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
 )
 
@@ -121,9 +121,25 @@ func (bc *BrowserClient) getContext() context.Context {
 func (bc *BrowserClient) doGET(req *http.Request) (*http.Response, error) {
 	ctx := bc.getContext()
 	var html string
+	var statusCode int64 = 200 // fallback default
+	var statusText string = "OK"
+	var respHeaders http.Header = make(http.Header)
+
+	chromedp.ListenTarget(ctx, func(ev interface{}) {
+		if res, ok := ev.(*network.EventResponseReceived); ok {
+			if res.Type == network.ResourceTypeDocument {
+				statusCode = int64(res.Response.Status)
+				statusText = res.Response.StatusText
+				for k, v := range res.Response.Headers {
+					respHeaders.Set(k, fmt.Sprintf("%v", v))
+				}
+			}
+		}
+	})
 
 	err := chromedp.Run(ctx,
-		chromedp.Sleep(1*time.Second),
+		network.Enable(),
+		//chromedp.Sleep(1*time.Second), // get ready first request
 		chromedp.Navigate(req.URL.String()),
 		chromedp.WaitReady("body", chromedp.ByQuery),
 		chromedp.OuterHTML("html", &html),
@@ -144,10 +160,11 @@ func (bc *BrowserClient) doGET(req *http.Request) (*http.Response, error) {
 			log.Printf("[browserhttp] Failed to capture screenshot: %v", err)
 		}
 	}
+
 	return &http.Response{
-		StatusCode: 200,
-		Status:     "200 OK",
-		Header:     make(http.Header),
+		StatusCode: int(statusCode),
+		Status:     fmt.Sprintf("%d %s", statusCode, statusText),
+		Header:     respHeaders,
 		Body:       io.NopCloser(strings.NewReader(html)),
 		Request:    req,
 	}, nil
@@ -158,9 +175,24 @@ func (bc *BrowserClient) doPOST(req *http.Request) (*http.Response, error) {
 	var html string
 	formAction := req.URL.String()
 	var postScript string
+	var statusCode int64 = 200 // fallback default
+	var statusText string = "OK"
+	var respHeaders http.Header = make(http.Header)
+
+	chromedp.ListenTarget(ctx, func(ev interface{}) {
+		if res, ok := ev.(*network.EventResponseReceived); ok {
+			if res.Type == network.ResourceTypeDocument {
+				statusCode = int64(res.Response.Status)
+				statusText = res.Response.StatusText
+				for k, v := range res.Response.Headers {
+					respHeaders.Set(k, fmt.Sprintf("%v", v))
+				}
+			}
+		}
+	})
 
 	if req.Body != nil {
-		bodyBytes, _ := ioutil.ReadAll(req.Body)
+		bodyBytes, _ := io.ReadAll(req.Body)
 		values, _ := url.ParseQuery(string(bodyBytes))
 		postScript = "var form = document.createElement('form'); form.method = 'POST'; form.action = '" + formAction + "';"
 		for key, vals := range values {
@@ -172,6 +204,7 @@ func (bc *BrowserClient) doPOST(req *http.Request) (*http.Response, error) {
 	}
 
 	err := chromedp.Run(ctx,
+		network.Enable(),
 		chromedp.Navigate("about:blank"),
 		chromedp.Evaluate(postScript, nil),
 		chromedp.WaitReady("body", chromedp.ByQuery),
@@ -193,9 +226,9 @@ func (bc *BrowserClient) doPOST(req *http.Request) (*http.Response, error) {
 		}
 	}
 	return &http.Response{
-		StatusCode: 200,
-		Status:     "200 OK",
-		Header:     make(http.Header),
+		StatusCode: int(statusCode),
+		Status:     fmt.Sprintf("%d %s", statusCode, statusText),
+		Header:     respHeaders,
 		Body:       io.NopCloser(strings.NewReader(html)),
 		Request:    req,
 	}, nil
