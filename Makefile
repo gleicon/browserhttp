@@ -22,6 +22,11 @@ build-examples:
 	go build -o bin/verbose examples/verbose.go
 	go build -o bin/multitabs examples/multitabs.go
 
+	go build -o bin/get_with_screenshot examples/get_with_screenshot.go
+	go build -o bin/multitab_with_screenshots examples/multitab_with_screenshots.go
+	go build -o bin/post_with_screenshot examples/post_with_screenshot.go
+
+
 build-burl:
 	@echo "Building burl CLI..."
 	go build -o bin/burl examples/burl/burl.go

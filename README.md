@@ -97,7 +97,11 @@ burl -i -o page.html -H headers.txt https://target.com
 
 # Follow redirects + persistent tab
 burl -L -p https://site.com
+
+# POST with form data and take a screenshot to be saved to the current dir
+burl -X POST -d "u=admin&p=pass" -s . https://example.com/login
 ```
+
 
 ---
 

@@ -24,12 +24,14 @@ import (
 // BrowserClient implements a drop-in replacement for http.Client
 // using a headless browser to execute the requests.
 type BrowserClient struct {
-	Timeout         time.Duration
-	Verbose         bool
-	PersistentTabs  bool
-	allocatorCtx    context.Context
-	browserCancelFn context.CancelFunc
-	tabCtx          context.Context
+	Timeout            time.Duration
+	Verbose            bool
+	PersistentTabs     bool
+	allocatorCtx       context.Context
+	browserCancelFn    context.CancelFunc
+	tabCtx             context.Context
+	CaptureScreenshots bool
+	ScreenshotDir      string
 }
 
 // NewClient returns a BrowserClient with the given timeout.
@@ -37,6 +39,12 @@ func NewClient(timeout time.Duration) *BrowserClient {
 	return &BrowserClient{
 		Timeout: timeout,
 	}
+}
+
+// optional: screenshot every request to a pre configured directory
+func (bc *BrowserClient) EnableScreenshots(dir string) {
+	bc.CaptureScreenshots = true
+	bc.ScreenshotDir = dir
 }
 
 // EnableVerbose turns on logging for the browser client.
@@ -124,6 +132,18 @@ func (bc *BrowserClient) doGET(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
+	if bc.CaptureScreenshots {
+		var buf []byte
+		if err := chromedp.Run(ctx, chromedp.CaptureScreenshot(&buf)); err == nil {
+			filename := fmt.Sprintf("%s/snap_%d.png", bc.ScreenshotDir, time.Now().UnixNano())
+			_ = os.WriteFile(filename, buf, 0644)
+			if bc.Verbose {
+				log.Printf("[browserhttp] Screenshot saved to %s", filename)
+			}
+		} else if bc.Verbose {
+			log.Printf("[browserhttp] Failed to capture screenshot: %v", err)
+		}
+	}
 	return &http.Response{
 		StatusCode: 200,
 		Status:     "200 OK",
@@ -160,7 +180,18 @@ func (bc *BrowserClient) doPOST(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	if bc.CaptureScreenshots {
+		var buf []byte
+		if err := chromedp.Run(ctx, chromedp.CaptureScreenshot(&buf)); err == nil {
+			filename := fmt.Sprintf("%s/snap_%d.png", bc.ScreenshotDir, time.Now().UnixNano())
+			_ = os.WriteFile(filename, buf, 0644)
+			if bc.Verbose {
+				log.Printf("[browserhttp] Screenshot saved to %s", filename)
+			}
+		} else if bc.Verbose {
+			log.Printf("[browserhttp] Failed to capture screenshot: %v", err)
+		}
+	}
 	return &http.Response{
 		StatusCode: 200,
 		Status:     "200 OK",
