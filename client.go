@@ -14,9 +14,9 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
-	"os"
 
 	"github.com/chromedp/chromedp"
 )
@@ -29,7 +29,7 @@ type BrowserClient struct {
 	PersistentTabs  bool
 	allocatorCtx    context.Context
 	browserCancelFn context.CancelFunc
-	tabCtx context.Context
+	tabCtx          context.Context
 }
 
 // NewClient returns a BrowserClient with the given timeout.
@@ -54,7 +54,7 @@ func (bc *BrowserClient) Init() error {
 
 	timeout := bc.Timeout
 	if os.Getenv("CI") == "true" {
-    timeout = 60 * time.Second
+		timeout = 60 * time.Second
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
@@ -64,11 +64,11 @@ func (bc *BrowserClient) Init() error {
 		chromedp.Flag("headless", true),
 		chromedp.Flag("disable-gpu", true),
 	)
-	
+
 	if os.Getenv("CHROME_FLAGS") == "--no-sandbox" {
-    opts = append(opts, chromedp.Flag("no-sandbox", true))
+		opts = append(opts, chromedp.Flag("no-sandbox", true))
 	}
-	
+
 	allocCtx, _ := chromedp.NewExecAllocator(ctx, opts...)
 	bc.allocatorCtx = allocCtx
 
@@ -115,7 +115,7 @@ func (bc *BrowserClient) doGET(req *http.Request) (*http.Response, error) {
 	var html string
 
 	err := chromedp.Run(ctx,
-		chromedp.Sleep(1 * time.Second),
+		chromedp.Sleep(1*time.Second),
 		chromedp.Navigate(req.URL.String()),
 		chromedp.WaitReady("body", chromedp.ByQuery),
 		chromedp.OuterHTML("html", &html),
@@ -169,4 +169,3 @@ func (bc *BrowserClient) doPOST(req *http.Request) (*http.Response, error) {
 		Request:    req,
 	}, nil
 }
-

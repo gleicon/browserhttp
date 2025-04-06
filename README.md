@@ -107,7 +107,7 @@ burl -L -p https://site.com
 - `doPOST()` simulates JS form creation and submission
 - `UsePersistentTabs(true)` enables tab reuse and session sharing
 - $ _export CHROME\_FLAGS =--no-sandbox_ disable chrome sandbox, initially adapted to ease CI but can help embedded systems.
-- $ _export CI=true_ increase the timeout to 1 second, initially to appease slower CI and container environments but if your client fail due to a ws:// (websocket) error it is worth a shot.
+- $ _export CI=true_ increase the timeout to 60 seconds, initially to appease slower CI and container environments but if your client fail due to a ws:// (websocket) error it is worth a shot.
 
 ---
 
