@@ -16,10 +16,15 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: '1.23'
+        go-version: '1.21'
 
     - name: Install dependencies
       run: go mod tidy
+
+    - name: Install Chromium dependencies (no-sandbox workaround)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libatk-bridge2.0-0 libgtk-3-0 libxss1 libasound2
 
     - name: Build CLI
       run: make build

@@ -11,6 +11,9 @@ import (
 
 func main() {
 	client := browserhttp.NewClient(15 * time.Second)
+	client.UsePersistentTabs(false)
+	client.Init()
+	defer client.Close()
 
 	req, _ := http.NewRequest("GET", "https://example.com", nil)
 	resp, err := client.Do(req)
