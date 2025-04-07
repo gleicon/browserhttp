@@ -276,3 +276,36 @@ func (bc *BrowserClient) doPOST(req *http.Request) (*http.Response, error) {
 		Request:    req,
 	}, nil
 }
+
+// Get issues a GET to the specified URL.
+func (bc *BrowserClient) Get(url string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	return bc.Do(req)
+}
+
+// Head issues a HEAD to the specified URL.
+func (bc *BrowserClient) Head(url string) (*http.Response, error) {
+	req, err := http.NewRequest("HEAD", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	return bc.Do(req)
+}
+
+// Post issues a POST to the specified URL.
+func (bc *BrowserClient) Post(url, contentType string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequest("POST", url, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", contentType)
+	return bc.Do(req)
+}
+
+// PostForm issues a POST to the specified URL, with data's keys and values URL-encoded as the request body.
+func (bc *BrowserClient) PostForm(url string, data url.Values) (*http.Response, error) {
+	return bc.Post(url, "application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
+}
