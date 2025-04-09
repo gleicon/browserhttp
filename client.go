@@ -71,6 +71,10 @@ func (bc *BrowserClient) Init() error {
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.Flag("headless", true),
 		chromedp.Flag("disable-gpu", true),
+		chromedp.Flag("enable-automation", true),
+		chromedp.Flag("disable-dev-shm-usage", true),
+		chromedp.Flag("disable-background-timer-throttling", false),
+
 	)
 
 	if os.Getenv("CHROME_FLAGS") == "--no-sandbox" {
