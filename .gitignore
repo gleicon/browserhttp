@@ -5,3 +5,5 @@ screenshots/*
 .vscode
 .cursor
 snap*.png
+.hive-mind/
+BROWSERHTTP_IMPROVEMENTS.md

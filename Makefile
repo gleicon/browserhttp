@@ -4,8 +4,10 @@ all: deps build build-examples
 
 deps:
 	@echo "Deps"
+	go mod tidy 
 	go mod download
 	go mod verify
+
 
 build:
 	@echo "Building browserhttp library..."
