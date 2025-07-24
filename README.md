@@ -1,183 +1,281 @@
-# browserhttp - a chromium/chrome backed http client for Go
-
-![browserhttp](https://raw.githubusercontent.com/gleicon/browserhttp/main/logo.jpeg)
-
+# browserhttp - Chrome-backed HTTP Client for Go
 
 [![Go CI](https://github.com/gleicon/browserhttp/actions/workflows/go.yml/badge.svg)](https://github.com/gleicon/browserhttp/actions/workflows/go.yml)
 
-`browserhttp` is a drop-in `http.Client`-compatible Go package that uses a real headless browser (Chrome via [chromedp](https://github.com/chromedp/chromedp)) under the hood to fetch and interact with web pages.
+`browserhttp` is a drop-in `http.Client`-compatible Go package that uses a real headless browser (Chrome via [chromedp](https://github.com/chromedp/chromedp)) to fetch and interact with web pages.
 
-It is ideal for security testing, scraping, automation, and environments where:
+Ideal for security testing, scraping, automation, and environments where JavaScript rendering is required, WAFs block standard HTTP clients, or you need to behave exactly like a browser.
 
-- JavaScript rendering is required
-- WAFs or anti-bot protection block `http.Client`
-- You want to behave exactly like a browser (including cookies, rendering, DOM evaluation)
+## Features
 
----
+- Drop-in `Do(*http.Request)` compatibility with standard `http.Client`
+- Real browser sessions using chromedp
+- Support for GET, POST, JSON, and file upload requests
+- Advanced browser controls (wait, click, type, evaluate JavaScript)
+- Session management with cookie and localStorage support
+- Performance monitoring and metrics collection
+- Content extraction and SEO analysis
+- Security scanning capabilities
+- Device emulation and proxy support
+- Request/response interception
+- Screenshot capture functionality
+- Persistent tab/session reuse for multi-request flows
+- Comprehensive error handling with retry logic
 
-## ✨ Features
-
-- ✅ Drop-in `Do(*http.Request)` compatible
-- ✅ Executes real browser sessions using `chromedp`
-- ✅ Supports GET and POST requests
-- ✅ JavaScript form submission simulation
-- ✅ Logs requests with `EnableVerbose()`
-- ✅ Supports persistent tab/session reuse (multi-request flows)
-- ✅ Designed for use in scanners, red team tools, or web automation
-
----
-
-## 📦 Installation
+## Installation
 
 ```bash
 go get github.com/gleicon/browserhttp
 ```
 
----
+## Quick Start
 
-## 🧪 Usage
-
-### Basic GET
+### Basic Usage
 
 ```go
-client := browserhttp.NewClient(10 * time.Second)
-client.Init()
-req, _ := http.NewRequest("GET", "https://example.com", nil)
-resp, _ := client.Do(req)
+package main
+
+import (
+    "net/http"
+    "time"
+    "github.com/gleicon/browserhttp"
+)
+
+func main() {
+    client := browserhttp.NewClient(15 * time.Second)
+    client.Init()
+    defer client.Close()
+    
+    req, _ := http.NewRequest("GET", "https://example.com", nil)
+    resp, err := client.Do(req)
+    if err != nil {
+        panic(err)
+    }
+    defer resp.Body.Close()
+}
 ```
 
-### Persistent Tab Session (Login Flow)
+### Enhanced Request Methods
 
 ```go
-client := browserhttp.NewClient(15 * time.Second)
+// JSON POST request
+data := map[string]string{"username": "admin", "password": "secret"}
+resp, err := client.PostJSON("https://api.example.com/login", data)
+
+// Custom headers
+headers := map[string]string{"Authorization": "Bearer token123"}
+resp, err := client.DoWithHeaders(req, headers)
+
+// File upload
+file := strings.NewReader("file content")
+resp, err := client.PostFile("https://example.com/upload", "file", "document.txt", file)
+```
+
+### Browser Automation
+
+```go
+// Wait for elements and interact with page
+err := client.WaitForElement("#login-form", 5*time.Second)
+err = client.Type("#username", "admin")
+err = client.Type("#password", "secret")
+err = client.Click("#submit-button")
+
+// Execute JavaScript
+var result string
+err = client.Evaluate("document.title", &result)
+
+// Extract page content
+links, err := client.ExtractLinks()
+images, err := client.ExtractImages()
+forms, err := client.ExtractForms()
+```
+
+### Session Management
+
+```go
+// Enable persistent tabs for login flows
 client.UsePersistentTabs(true)
-client.Init()
-defer client.Close()
 
-// Login
-req1, _ := http.NewRequest("POST", "https://example.com/login", strings.NewReader("user=admin&pass=secret"))
-client.Do(req1)
+// Cookie management
+cookies, err := client.GetCookies()
+err = client.SetCookies(cookies)
+err = client.ClearCookies()
 
-// Reuse session to access authenticated page
-req2, _ := http.NewRequest("GET", "https://example.com/dashboard", nil)
-client.Do(req2)
+// localStorage operations
+value, err := client.GetLocalStorage("sessionToken")
+err = client.SetLocalStorage("preference", "dark-mode")
+
+// Save/load entire session
+err = client.SaveSession("session.json")
+err = client.LoadSession("session.json")
 ```
 
-### Verbose Mode
+### Performance and Analysis
 
 ```go
-client := browserhttp.NewClient(10 * time.Second)
-client.EnableVerbose()
+// Get performance metrics
+metrics, err := client.GetPerformanceMetrics()
+fmt.Printf("DOM loaded in: %v\n", metrics.DOMContentLoaded)
+
+// SEO analysis
+seo, err := client.AnalyzeSEO()
+fmt.Printf("Page title: %s\n", seo.Title)
+fmt.Printf("Meta description: %s\n", seo.Description)
+
+// Security scanning
+vulns, err := client.DetectVulnerabilities()
+csp, err := client.CheckCSP()
+ssl, err := client.CheckSSL()
 ```
 
----
+### Advanced Configuration
 
-## 📁 Examples
+```go
+// Device emulation
+device := browserhttp.DeviceEmulation{
+    UserAgent: "Mozilla/5.0...",
+    Width:     375,
+    Height:    667,
+    Mobile:    true,
+    Touch:     true,
+}
+client.EmulateDevice(device)
+
+// Retry configuration
+retryConfig := browserhttp.RetryConfig{
+    MaxAttempts: 3,
+    Delay:       time.Second,
+    Backoff:     true,
+}
+client.WithRetry(retryConfig)
+
+// Proxy support
+client.SetProxy("http://proxy.example.com:8080")
+
+// Request/response interception
+client.AddRequestInterceptor(func(req *http.Request) *http.Request {
+    req.Header.Set("Custom-Header", "value")
+    return req
+})
+```
+
+## CLI Tool: burl
+
+The package includes `burl`, a curl-like CLI tool with browser capabilities:
 
 ```bash
+# Build the CLI
 make build-burl
-./bin/burl -v -X POST -d "test=1" https://httpbin.org/post
-```
 
-![burl](https://raw.githubusercontent.com/gleicon/browserhttp/main/burl-screenshot.png)
-
----
-
-## CLI: `burl`
-
-```bash
-# Basic GET
-burl https://example.com
+# Basic usage
+./bin/burl https://example.com
 
 # POST with form data
-burl -X POST -d "user=admin&pass=123" https://httpbin.org/post
+./bin/burl -X POST -d "user=admin&pass=123" https://httpbin.org/post
 
-# Save output and headers
-burl -i -o page.html -H headers.txt https://target.com
+# With screenshots and verbose output
+./bin/burl -v -s ./screenshots https://example.com
 
-# Follow redirects + persistent tab
-burl -L -p https://site.com
-
-# POST with form data and take a screenshot to be saved to the current dir
-burl -X POST -d "u=admin&p=pass" -s . https://example.com/login
+# Persistent session with redirects
+./bin/burl -L -p https://site.com/login
 ```
 
+## Screenshot Capture
 
----
-
-## 🔧 Internals
-
-- `doGET()` uses `chromedp.Navigate()` and `chromedp.OuterHTML()`
-- `doPOST()` simulates JS form creation and submission
-- `UsePersistentTabs(true)` enables tab reuse and session sharing
-- $ _export CHROME\_FLAGS =--no-sandbox_ disable chrome sandbox, initially adapted to ease CI but can help embedded systems.
-- $ _export CI=true_ increase the timeout to 60 seconds, initially to appease slower CI and container environments but if your client fail due to a ws:// (websocket) error it is worth a shot.
-
----
-
-## 📸 Screenshot Capture (Optional)
-
-You can capture a full-page screenshot of every request made through `browserhttp`.
-
-### 🧪s Enabling Screenshots (Programmatic)
-
-Call this on your `BrowserClient`:
+Enable automatic screenshot capture for visual documentation:
 
 ```go
-os.MkdirAll("./screenshots", 0755) // ensure folder exists
+// Programmatically
+os.MkdirAll("./screenshots", 0755)
 client.EnableScreenshots("./screenshots")
+
+// Via CLI
+burl -s ./screenshots https://example.com
 ```
 
-This saves a `.png` image for each request (GET or POST) into the specified folder. Screenshots are timestamped and logged if `Verbose` is enabled.
+Screenshots are saved with timestamped filenames and are useful for penetration testing documentation, debugging, and visual regression testing.
 
-> ⚠️ If the directory does not exist, the call to `EnableScreenshots()` will not create it. You must ensure it's created in advance using `os.MkdirAll()`.
+## Environment Configuration
 
----
+- `CHROME_FLAGS=--no-sandbox` - Disable Chrome sandbox for CI/containers
+- `CI=true` - Increase timeout to 60 seconds for slower environments
 
-### 👥 Using Screenshots from CLI (`burl`)
+## Use Cases
 
-The `burl` CLI supports screenshots with the `-s` flag:
+- **Security Testing**: Automated vulnerability scanning with real browser behavior
+- **Web Scraping**: Handle JavaScript-heavy sites that require browser rendering  
+- **Penetration Testing**: Browser-based authentication and session management
+- **Quality Assurance**: Automated testing with screenshot documentation
+- **API Testing**: Test endpoints that require browser-like requests
+- **Content Analysis**: Extract and analyze web page content and structure
+
+## API Reference
+
+### Core Methods
+- `NewClient(timeout)` - Create new browser client
+- `Init()` - Initialize browser instance
+- `Close()` - Clean up browser resources
+- `Do(req)` - Execute HTTP request (drop-in replacement)
+
+### Enhanced Requests
+- `PostJSON(url, data)` - POST with JSON payload
+- `DoWithHeaders(req, headers)` - Request with custom headers
+- `PostFile(url, field, filename, file)` - File upload
+
+### Browser Controls
+- `WaitForElement(selector, timeout)` - Wait for element to appear
+- `WaitForText(text, timeout)` - Wait for text content
+- `WaitForNavigation(timeout)` - Wait for page navigation
+- `Click(selector)` - Click element
+- `Type(selector, text)` - Type into element
+- `Select(selector, value)` - Select option
+- `Evaluate(script, result)` - Execute JavaScript
+
+### Session Management
+- `GetCookies()` - Retrieve all cookies
+- `SetCookies(cookies)` - Set cookies
+- `ClearCookies()` - Clear all cookies
+- `GetLocalStorage(key)` - Get localStorage value
+- `SetLocalStorage(key, value)` - Set localStorage value
+- `SaveSession(filename)` - Save session to file
+- `LoadSession(filename)` - Load session from file
+
+### Analysis and Monitoring
+- `GetPerformanceMetrics()` - Get page performance data
+- `ExtractLinks()` - Extract all page links
+- `ExtractImages()` - Extract all image URLs
+- `ExtractForms()` - Extract form information
+- `AnalyzeSEO()` - Perform SEO analysis
+- `CheckCSP()` - Analyze Content Security Policy
+- `CheckSSL()` - Check SSL certificate
+- `DetectVulnerabilities()` - Basic vulnerability detection
+
+## Build and Development
 
 ```bash
-burl -v -X POST -d "a=1&b=2" -s ./screenshots https://target.com
+# Install dependencies
+make deps
+
+# Build library
+make build
+
+# Run tests
+make test
+
+# Build examples
+make build-examples
+
+# Build CLI tool
+make build-burl
+
+# Clean build artifacts
+make clean
 ```
 
-> 🛡️ The directory **must already exist**. If it doesn’t, `burl` will exit with an error.
+## Contributing
 
-Each screenshot is saved with a timestamped filename like:
+Pull requests welcome! Please ensure backward compatibility with existing `http.Client` interface and include tests for new functionality.
 
-```bash
-./screenshots/snap_1712407935123456789.png
-```
-
-Useful for:
-
-- 📷 Logging visual evidence during pentests
-- 📚 Documenting navigation flows or login attempts
-- 🕵️ Comparing layout/rendering changes over time
-
----
-
-## 🚧 TODO
-
-- Support JSON and custom body types
-- Capture real response headers from browser context
-- Add session/cookie persistence
-
----
-
-## 🛡️ Use Cases
-
-- Automated OWASP scans
-- Web scraping (JS-only pages)
-- Red team tools with simulated logins
-- Browser-based pen testing CLI
-
----
-
-## 🧠 Author
+## Author
 
 [gleicon](https://github.com/gleicon)
-
-Pull requests welcome!
-
